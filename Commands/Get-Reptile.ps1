@@ -100,12 +100,7 @@ function Get-Reptile
     # The list of supported commands
     [Alias('SupportedCommands')]
     [string[]]
-    $SupportedCommand = @(
-        'Get-Random', 'Random', 
-        'RandomColor', 'RandomAngle'
-        'Turtle', 'Get-Turtle',
-        'MarkX', 'Markdown'        
-    ),
+    $SupportedCommand = @(),
 
     # The Reptile's Shell    
     # This object will be rendered on GET requests.
@@ -116,44 +111,44 @@ function Get-Reptile
         if (Test-Path "./repl.html") {
             Get-Content ./repl.html
         } else {
+            "<html><head><title>Reptile</title>"
             "<style>"
+                "body {"
+                    @(
+                        "max-width: 100vw"
+                        "height: 100vh"
+                        "background-color: black"
+                        "color: white;"
+                    ) -join '; '
+                "}"
                 ".repl-input-area {"
                     @(
                         "display: grid"
-                        "width: 100ch"
                         "place-items: center"
-                        "grid-template-areas: 'input go'"
-                    ) -join ';'
+                        "place-content: center"
+                        "grid-template-areas: 'input' 'go' 'output'"
+                        "grid-template-rows: auto auto auto"
+                        "grid-template-columns: 1fr"
+                    ) -join '; '
                 "}"
-                ".repl-input { grid-area: input; }"
-                ".repl-go { grid-area: go; }"
+                ".repl-input { grid-area: input; width: 100%; }"
+                ".repl-go { grid-area: go; width: 50%;}"
+                ".repl-output { grid-area: output; width: 100%; }"
             "</style>"
-            "<div class='repl-input-area'>"
-            "<input class='repl-input' id='repl'></input>"
-            "<button class='repl-go' id='go'>Go</button>"                
-            "</div>"
-            "<output id='output'></output>"
-            "<script type='module'>"
-            "async function gorepl() {
-                const repl = document.getElementById('repl')
-                const out = document.getElementById('output')                    
-                const response = await fetch(window.location.href,
-                    {method: 'POST',body: repl.value})                   
-                out.innerText = await response.text()
-            }"
-            "document.getElementById('go').addEventListener('click', gorepl)"
-            "</script>"
+            "</head>"
+            "<body>"
+            "<form action='/' method='post'>"
+                "<input class='repl-input' id='repl' name='input'></input>"
+                "<input type='submit' value='go'></input>"
+            "</form>"                                    
+            "</body>"
+            "</html>"
         }
     ) -join [Environment]::NewLine,
-    
-    [ScriptBlock]
-    $Initialize = {    
-        Import-Module Turtle, MarkX -Global
 
-        Set-Alias Random Get-Random
-        function RandomColor { "#{0:x6}" -f (Get-Random -Max 0xffffff) }
-        function RandomAngle {Get-Random -Min -360 -Max 360 }
-    },
+    # The script used to initialize the reptile.
+    [ScriptBlock]
+    $Initialize = {},
 
     # The number of nodes to run.
     [uint32]
@@ -231,6 +226,7 @@ function Get-Reptile
             if ($err -isnot [Management.Automation.ErrorRecord]) {
                 return       
             }
+            # Attempt to find the best error message
             $bestMessage =
                 if ($err.Exception.InnerException.Message) {
                     $err.Exception.InnerException.Message
@@ -342,11 +338,10 @@ function Get-Reptile
                             $_ | errorOut
                             continue nextRequest
                         }
-                        
-                        
-                        
+                                                                        
                         foreach ($key in $inputParsed.Keys) {
-                            $inputCopy[$key] = [Web.HttpUtility]::UrlDecode($inputParsed[$key])
+                            $inputCopy[$key] = $inputParsed[$key]
+                            Write-Host "$key - $($inputCopy[$key])"
                         }
                         $reply.ContentType = 'text/html'
                     }
@@ -372,9 +367,7 @@ function Get-Reptile
                     # and then write what was attempted and when.
                     @(
                         "$($request.RemoteAddr) $($request.httpMethod) $($request.Url) @ $([datetime]::Now)"
-                        "$inputString "
-                        "---"
-                    ) | Write-Host -ForegroundColor DarkYellow
+                    ) | Write-Host -ForegroundColor Cyan
 
                     # Now we try to make it into a data block
                     $dataBlock =
