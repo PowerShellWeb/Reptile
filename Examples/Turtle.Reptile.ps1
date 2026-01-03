@@ -24,7 +24,14 @@ Reptile -Initialize {
                 "hsl($($randomOffset + ($n * 45)) 100% 50%)"
             }) -join ','
         ))'></div>"  
-    }    
+    }
+    
+    function say {
+        $allInput = @($input) + @($args)
+        foreach ($message in $allInput) {
+            "<h1>$([Web.HttpUtility]::HtmlEncode($message))</h1>"
+        }
+    }
 } -Repl (./TurtleShell.html.ps1) -SupportedCommand @(
     'Turtle', 'Get-Turtle'
 
@@ -35,6 +42,8 @@ Reptile -Initialize {
     'Get-Random', 'Random', 'RandomColor', 'RandomAngle'    
 
     'ColorWheel'
+
+    'Say'
 )
 
 Pop-Location
