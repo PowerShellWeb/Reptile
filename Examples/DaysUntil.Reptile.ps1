@@ -21,6 +21,7 @@ Reptile  -Initialize {
     "<input type='date' id='date' name='date' value='$([Datetime]::Now.Year)-12-25' />"
     # (with a label)
     "<label for='date'>Choose a Date</label>"
+    # and a hidden input containing our script.
     "<input type='hidden' name='input' value='$(
         [Web.HttpUtility]::HtmlAttributeEncode('daysuntil $Date')
     )'></input>"
