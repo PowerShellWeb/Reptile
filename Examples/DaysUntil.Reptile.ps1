@@ -2,11 +2,11 @@
 .SYNOPSIS
     Days Until Reptile 
 .DESCRIPTION
-    A simple single command form.  Show the number of days until a date.    
+    A simple single command form.  Show the number of days until a date.
 .NOTES
     This demonstrates how we can build really self-service forms.
 #>
-Reptile  -Initialize {
+Reptile -Initialize {
     # We can declare a small function in initialize
     function DaysUntil([Parameter(Mandatory)][DateTime]$Date) {
         "<h1>$(($date - [DateTime]::Now).TotalDays) days until $($date)</h1>"
@@ -22,7 +22,7 @@ Reptile  -Initialize {
     # (with a label)
     "<label for='date'>Choose a Date</label>"
     # and a hidden input containing our script.
-    "<input type='hidden' name='input' value='$(
+    "<input type='hidden' name='command' value='$(
         [Web.HttpUtility]::HtmlAttributeEncode('daysuntil $Date')
     )'></input>"
     "<input type='submit' value='go'></input>"

@@ -138,7 +138,7 @@ function Get-Reptile
             "</head>"
             "<body>"
             "<form action='/' method='post'>"
-                "<input class='repl-input' id='repl' name='input'></input>"
+                "<input class='repl-input' id='repl' name='command'></input>"
                 "<input type='submit' value='go'></input>"
             "</form>"                                    
             "</body>"
@@ -181,7 +181,7 @@ function Get-Reptile
 
     # For example, we want to reply in a background job:
     $ReplyDefinition = {        
-        param([ScriptBlock]$dataBlock, $reply)
+        param([ScriptBlock]$dataBlock, $reply, [Collections.IDictionary]$Option)
         # We want to double check the data statement is the only thing
         if (-not (
             ($dataBlock.Ast.EndBlock.Statements.Count -eq 1) -and 
@@ -221,8 +221,12 @@ function Get-Reptile
             else { $psvariable.set($key, $io[$key]) }
         }
 
+        # Now we want to declare several filters for various conditions
+
+        # First up, let's handle how we error out
         filter errorOut {
             $err = $_
+            # If this is not an error, return.
             if ($err -isnot [Management.Automation.ErrorRecord]) {
                 return       
             }
@@ -245,22 +249,169 @@ function Get-Reptile
             $reply.Close($OutputEncoding.GetBytes("$bestMessage"), $false)                                        
         }
 
+        # Next let's define a command to construct our data block
+
+        filter getDataBlock([string]$inputString) {
+            try {
+                # First we construct a script block.
+                # If this fails, the code is invalid.
+                $inputScriptBlock = 
+                    [ScriptBlock]::Create($inputString)
+
+                # data blocks give us an inline restricted language mode
+                [ScriptBlock]::Create("data $(
+                    if ($SupportedCommand) { "-supportedCommand '$(
+                        # and we can support a limited set of commands.
+                        $SupportedCommand -replace "'","''" -join "','"
+                    )'"}
+                ) {" + 
+                    [Environment]::NewLine +
+                    $inputScriptBlock +
+                    [Environment]::NewLine +
+                "}")
+            } catch {
+                # If we could not make this a data block
+                $_ | errorOut
+                continue nextRequest
+            }
+        }
+
+        # Next, we define how we replace variables        
         filter replaceVariable {
             param([string]$variableName, [string]$replacement)
             
             # Very permissive variable pattern:
             # variables can begin with:
             $prefixes = @(
-                ':' # colons (logo style)
-                '-{2}' # two dashes (css style)                
-                '\$' # dollar signs (PowerShell style)
+                ':'    # colons (logo style)
+                '-{2}' # two dashes (css style)
+                '\$'   # dollar signs (PowerShell style)
+                '@'    # sql style / splatting style ()
             )
             $variablePattern = "(?>$($prefixes -join '|'))" + ([Regex]::Escape($variableName))
             
             $in = $_
-            $in -replace $variablePattern, "'$($replacement -replace "'","''")'"
+            $in -replace $variablePattern, "'$(
+                $replacement -replace # First sanitize each value
+                    "'","''" -join # then join into a list of constants
+                    "','" # and now we have multi-value type free variable support
+            )'"
+
+            # An expanded variable that _somehow_ escapes stringification
+            # should be be caught by the data block.
+
+            # This allowing us to support parameters without sacrificing safety.
         }
 
+
+        filter getCommandAndInput {            
+            # Read our body
+            $streamReader =
+                [IO.StreamReader]::new($request.InputStream, $request.ContentEncoding)
+                            
+            $inputString = $streamReader.ReadToEnd()
+
+            $streamReader.Close()
+            $streamReader.Dispose()
+
+            # If we cannot parse the body, we'll pass it as a command.
+            $inputParsed = $null
+            $jsonRpc = $null
+            $inputCopy = [Ordered]@{}
+            # If the content type resembled json
+            if ($request.ContentType -match '.+?/.{0,}json') {
+                # try to parse it
+                $inputParsed =
+                    try { $inputString | ConvertFrom-Json -AsHashtable}
+                    catch {
+                        # and error out if that did not work.
+                        $_ | errorOut
+                        continue nextRequest
+                    }
+
+                # JSON rpc sends a method and parameters
+                if ($inputParsed.jsonrpc -and 
+                    $inputParsed.method
+                ) {
+                    $jsonRpc = $inputParsed
+
+                    # Per the json rpc spec, without an id it is a notification
+                    if ($null -eq $jsonRpc.method.id) {
+                        $inputString # emit the input (thus notifying the server owner)
+                        $reply.Close() # and close the request
+                        continue nextRequest
+                    }
+                    
+                    $inputCopy.input = $jsonRpc.method
+                    
+                    foreach ($key in $jsonRpc.parameters.keys) {
+                        $inputCopy[$key] = $jsonRpc.parameters[$key]
+                    }
+                }
+            }
+
+            # If the content type looks like form data
+            if ($request.ContentType -eq 'application/x-www-form-urlencoded') {                        
+                # try to parse it                    
+                try { $inputParsed = [Web.HttpUtility]::ParseQueryString($inputString) }
+                catch {
+                    # and error out if that did not work.
+                    $_ | errorOut
+                    continue nextRequest
+                }
+                                                                
+                foreach ($key in $inputParsed.Keys) {
+                    $inputCopy[$key] = $inputParsed[$key]
+                    Write-Host "$key - $($inputCopy[$key])"
+                }
+                $reply.ContentType = 'text/html'
+            }
+
+            # If we have parsed the input,
+            # then it's fairly simple to support variables.
+
+            # (data blocks don't have variables, 
+            # but they guard against injection enough to support open-ended text input)                    
+            if ($inputCopy.Count) {
+                if (-not $inputCopy['Command']) {
+                    $err =
+                        Write-Error "No Command" -TargetObject $request *>&1
+                    $err | errorOut
+                    continue nextRequest
+                }
+                $inputString = $inputCopy['Command']
+                foreach ($key in $inputCopy.Keys) {
+                    $inputString = $inputString | replaceVariable $key $inputCopy[$key]
+                }
+            }
+
+            # and then write what was attempted and when.
+            @(
+                "$($request.RemoteAddr) $($request.httpMethod) $($request.Url) @ $([datetime]::Now)"
+            ) | Write-Host -ForegroundColor Cyan
+
+            # Now we try to make it into a data block
+            $dataBlock = GetDataBlock $inputString
+
+            # This last bit of healthy paranoia is done twice.
+            # It may not even be possible, but, if, somehow someone managed to inject a _second_
+            # command, or, magically make it not a data block, 
+            if (
+                ($dataBlock.Ast.EndBlock.Statements.Count -ne 1) -or 
+                ($dataBlock.Ast.EndBlock.Statements[0] -isnot 
+                    [Management.Automation.Language.DataStatementAst])
+            ) {
+                # we want to write an error.
+                $err = 
+                    Write-Error "Unbalanced Injection Attempted @ $([datetime]::Now)" -Category SecurityError -TargetObject $request *>&1
+                
+                $err | errorOut
+
+                continue nextRequest
+            }
+        }
+
+        
         
         # Then listen for the next request
         :nextRequest while ($httpListener.IsListening) {
@@ -269,12 +420,16 @@ function Get-Reptile
             while (-not $getContext.Wait(17)) { }
             $request, $reply =
                 $getContext.Result.Request, $getContext.Result.Response
+
+            if ($request.Url -match '/xrpc/') {
+
+            }
             
             # Switch what we do next based off of the HTTP Method.
             switch ($request.httpMethod) {
                 get {
                     # If it's get, return the REPL
-                    $reply.ContentType = 'text/html'                
+                    $reply.ContentType = 'text/html'
                     $replBytes = $OutputEncoding.GetBytes("$($io.Shell)")
                     $reply.Close($replBytes, $false)
                 }
@@ -292,132 +447,30 @@ function Get-Reptile
                         continue nextRequest # and continue to the next request.
                     }
                     
-                    # Read our body
-                    $streamReader = [IO.StreamReader]::new($request.InputStream, $request.ContentEncoding)
-                    $inputString = $streamReader.ReadToEnd()
-                    $streamReader.Close()
-                    $streamReader.Dispose()
+                    $dataBlock = $null           
 
-                    # If we cannot parse the body, we'll pass it as a command.
-
-
-                    $inputParsed = $null
-                    $inputCopy = [Ordered]@{}
-                    # If the content type resembled json
-                    if ($request.ContentType -match '.+?/.{0,}json') {
-                        # try to parse it
-                        $inputParsed = 
-                            try { $inputString | ConvertFrom-Json -AsHashtable}
-                            catch {
-                                # and error out if that did not work.
-                                $_ | errorOut
-                                continue nextRequest
-                            }
-
-                        # JSON rpc sends a method and parameters
-                        if ($inputParsed.jsonrpc -and 
-                            $inputParsed.method
-                        ) {
-                            $jsonRpcParsed = $inputParsed
-                            $inputCopy.input = $jsonRpcParsed.method
-                            
-                            
-                            foreach ($key in $jsonRpcParsed.parameters.keys) {
-                                $inputCopy[$key] = $jsonRpcParsed.parameters[$key]
-                            }
-                        }
-                    }
-
-                    # If the content type looks like form data
-                    if ($request.ContentType -eq 'application/x-www-form-urlencoded') {
-                        
-                        # try to parse it                    
-                        try { $inputParsed = [Web.HttpUtility]::ParseQueryString($inputString) }
-                        catch {
-                            # and error out if that did not work.
-                            $_ | errorOut
-                            continue nextRequest
-                        }
-                                                                        
-                        foreach ($key in $inputParsed.Keys) {
-                            $inputCopy[$key] = $inputParsed[$key]
-                            Write-Host "$key - $($inputCopy[$key])"
-                        }
-                        $reply.ContentType = 'text/html'
-                    }
-
-                    # If we have parsed the input, 
-                    # then it's fairly simple to support variables.
-
-                    # (data blocks don't variables, but they guard against injection enough to replace text)
-                    
-                    if ($inputCopy.Count) {
-                        if (-not $inputCopy['Input']) {
-                            $err = 
-                                Write-Error "No Input" -TargetObject $request *>&1
-                            $err | errorOut
-                            continue nextRequest
-                        }
-                        $inputString = $inputCopy['Input']
-                        foreach ($key in $inputCopy.Keys) {
-                            $inputString = $inputString | replaceVariable $key $inputCopy[$key]
-                        }
-                    }                    
-
-                    # and then write what was attempted and when.
-                    @(
-                        "$($request.RemoteAddr) $($request.httpMethod) $($request.Url) @ $([datetime]::Now)"
-                    ) | Write-Host -ForegroundColor Cyan
-
-                    # Now we try to make it into a data block
-                    $dataBlock =
-                        try {
-                            # First we construct a script block.
-                            # If this fails, the code is invalid.
-                            $inputScriptBlock = 
-                                [ScriptBlock]::Create($inputString)
-
-                            # data blocks give us an inline restricted language mode
-                            [ScriptBlock]::Create("data $(
-                                if ($SupportedCommand) { "-supportedCommand '$(
-                                    # and we can support a limited set of commands.
-                                    $SupportedCommand -replace "'","''" -join "','"
-                                )'"}
-                            ) {" + 
-                                [Environment]::NewLine + 
-                                $inputScriptBlock + 
-                                [Environment]::NewLine + 
-                            "}")
-                        } catch {
-                            # If we could not make this a data block
-                            $_ | errorOut
-                            continue nextRequest
-                        }
-
-                    # This last bit of healthy paranoia is done twice.
-                    # It may not even be possible, but, if, somehow someone managed to inject a _second_
-                    # command, or, magically make it not a data block, 
-                    if (
-                        ($dataBlock.Ast.EndBlock.Statements.Count -ne 1) -or 
-                        ($dataBlock.Ast.EndBlock.Statements[0] -isnot 
-                            [Management.Automation.Language.DataStatementAst])
-                    ) {
-                        # we want to write an error.
-                        $err = 
-                            Write-Error "Unbalanced Injection Attempted @ $([datetime]::Now)" -Category SecurityError -TargetObject $request *>&1
-                        $err | errorOut
-                        continue nextRequest
-                    }
-                    
+                    . getCommandAndInput
+                                                            
                     # Now we can launch an inner thread job to run the script and reply.
                     $replyJobParameters = @{
                         ScriptBlock=$ReplyDefinition
                         ThrottleLimit=1kb
-                        ArgumentList=$dataBlock, $reply
+                        ArgumentList=@(
+                            $dataBlock, $reply, 
+                            [Ordered]@{
+                                'jsonrpc' = $jsonRpcParsed
+                            }                            
+                        )
                         InitializationScript=$Initialize
                     }
+                    
                     # Doing this makes the server more resilient, but will be slower than directly handling each request.
                     Start-ThreadJob @replyJobParameters
+
+                    # Clean up any completed requests and continue on with the loop.
+                    Get-Job | 
+                        Where-Object State -eq 'Completed' | 
+                        Remove-Job -Force
                 }
             }
         }            

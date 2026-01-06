@@ -14,7 +14,7 @@ Reptile -SupportedCommand @() -Initialize {} -Shell @"
 <html><head><title>Calculating Reptile</title></head>
 <body>
 <form action='/' method='post'>
-    <input class='repl-input' id='repl' name='input'></input>
+    <input name='command'></input>
     <input type='submit' value='go'></input>
 </form>
 </body>

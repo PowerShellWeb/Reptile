@@ -21,7 +21,7 @@ Reptile -SupportedCommand @(
         <option>linear</option>
         <option>conic</option>
     </select>
-    <input type='hidden' name='input' value="$(
+    <input type='hidden' name='command' value="$(
         [Web.HttpUtility]::HtmlAttributeEncode(@'
 "<div style='width:100%;height:100%;background:$(gradient $gradientType $color1 $color2)'></div>"
 '@))"</input>
