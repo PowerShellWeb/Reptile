@@ -15,6 +15,50 @@ function Get-Reptile
 
         Reptile gives you simple, scalable and safe web terminals.
 
+        ### Installing and Importing
+
+        We can install Reptile from the PowerShell Gallery:
+
+        ~~~PowerShell
+        Install-Module Reptile
+        ~~~
+
+        Once installed, we can import it with:
+
+        ~~~PowerShell
+        Import-Module Reptile -PassThru
+        ~~~
+
+        We can also clone the repository and import it from any directory:
+
+        ~~~PowerShell
+        git clone https://github.com/PowerShellWeb/Reptile
+        cd ./Reptile
+        Import-Module ./ -PassThru
+        ~~~
+
+        ### Getting Started
+
+        Once installed, we just run reptile:
+
+        ~~~PowerShell
+        reptile
+        ~~~
+
+        This will start a simple terminal with no commands enabled.
+
+        You can still 'run' a few things.
+        
+        `2+2` will equal `4`.  "a" + "b" + "c" will be `abc`.
+
+        Feel free to play around.
+        
+        Reptile runs in Restricted Language mode, and it's pretty restrictive.
+
+        ## Simple, Scalable, Safe
+
+        Reptile gives you simple, scalable and safe web terminals.
+
         ### Simple
 
         Reptile run PowerShell in a [data block](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes?wt.mc_id=MVP_321542)
@@ -87,7 +131,7 @@ function Get-Reptile
         Additionally, because the responses are run in background _thread_ jobs, 
         it limits the overall impact of each request, and thus service is harder to deny.
     .EXAMPLE
-        ./DataReplServer.ps1
+        reptile
     .LINK
         https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes
     #>
@@ -308,7 +352,8 @@ function Get-Reptile
             # Read our body
             $streamReader =
                 [IO.StreamReader]::new($request.InputStream, $request.ContentEncoding)
-                            
+            
+            
             $inputString = $streamReader.ReadToEnd()
 
             $streamReader.Close()
