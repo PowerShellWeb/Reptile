@@ -2,8 +2,92 @@ param(
 [string]
 $Lucky = @'
 turtle lucky
-'@
+'@,
+
+[PSObject[]]
+$Examples = @(
+
+"<details name='examples'>"
+"<summary>Examples</summary>"
+"<button class='reptile' id='circle' command='turtle circle 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Circle</button>"
+"<button class='reptile' id='pie' command='turtle rotate (randomangle) pie 42 3 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Pie</button>"
+"<button class='reptile' id='square' command='turtle rotate (randomangle) square 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Square</button>"
+"<button class='reptile' id='rectangle' command='turtle rotate (randomangle) rectangle 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Rectangle</button>"
+"<button class='reptile' id='star' command='turtle rotate (randomangle) star 42 (5,6,7,8,9 | Get-Random) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Star</button>"
+"<button class='reptile' id='flower' command='turtle rotate (randomangle) flower 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Flower</button>"
+"<button class='reptile' id='starflower' command='turtle rotate (randomangle) starflower 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Starflower</button>"
+"<blockquote>"
+"<details open><summary>Sectors</summary>"
+
+@"
+<button class='reptile' id='quadrants' command="turtle id quadrants rotate (randomangle) @(
+    'CircleArc',42, 90, 'Rotate', 90 * 4
+) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Quadrants</button>
+
+<button class='reptile' id='antiquadrants' command="turtle id antiquadrants rotate (randomangle) @(
+    'CircleArc',42, -90, 'Rotate', 90 * 4
+) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Antiquadrants</button>
+
+<button class='reptile' id='sextants' command="turtle id sextants rotate (randomangle) @(
+    'CircleArc',42, 60, 'Rotate', 60 * 6
+) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Sextants</button>
+
+<button class='reptile' id='antisextants' command="turtle id antisextants rotate (randomangle) @(
+    'CircleArc',42, -60, 'Rotate', 60 * 6
+) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Antisextants</button>
+
+<button class='reptile' id='octants' command="turtle id quadrants rotate (randomangle) @(
+    'CircleArc',42, 45, 'Rotate', 45 * 8
+) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Octants</button>
+
+<button class='reptile' id='antioctants' command="turtle id antioctants rotate (randomangle) @(
+    'CircleArc',42, -45, 'Rotate', 45 * 8
+) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Antioctants</button>
+"@
+
+"</details>"
+
+"</blockquote>"
+
+"<blockquote>"
+
+"<details open><summary>Pies</summary>"
+
+@"
+<button class='reptile' id='pie3' command="
+turtle id rotate (randomangle) pie 42 3 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
+">3 slices</button>
+
+<button class='reptile' id='pie4' command="
+turtle id rotate (randomangle) pie 42 4 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
+">4 slices</button>
+
+<button class='reptile' id='pie5' command="
+turtle id rotate (randomangle) pie 42 5 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
+">5 slices</button>
+
+<button class='reptile' id='pie6' command="
+turtle id rotate (randomangle) pie 42 6 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
+">6 slices</button>
+
+<button class='reptile' id='pie7' command="
+turtle id rotate (randomangle) pie 42 7 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
+">7 slices</button>
+
+<button class='reptile' id='pie8' command="
+turtle id rotate (randomangle) pie 42 8 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
+">8 slices</button>
+
+"@
+
+"</details>"
+
+"</blockquote>"
+
 )
+
+)
+
 
 "<html>"
 "<head>"
@@ -54,75 +138,7 @@ $Lucky
 "@
 "</menu>"
 "<menu>"
-"<details name='examples'>"
-"<summary>Examples</summary>"
-
-"<button class='reptile' id='circle' command='turtle circle 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Circle</button>"
-"<button class='reptile' id='pie' command='turtle rotate (randomangle) pie 42 3 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Pie</button>"
-"<button class='reptile' id='square' command='turtle rotate (randomangle) square 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Square</button>"
-"<button class='reptile' id='rectangle' command='turtle rotate (randomangle) rectangle 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Rectangle</button>"
-"<button class='reptile' id='star' command='turtle rotate (randomangle) star 42 (5,6,7,8,9 | Get-Random) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Star</button>"
-"<button class='reptile' id='flower' command='turtle rotate (randomangle) flower 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Flower</button>"
-"<button class='reptile' id='starflower' command='turtle rotate (randomangle) starflower 42 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)'>Starflower</button>"
-"<blockquote>"
-"<details open><summary>Sectors</summary>"
-@"
-<button class='reptile' id='quadrants' command="turtle id quadrants rotate (randomangle) @(
-    'CircleArc',42, 90, 'Rotate', 90 * 4
-) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Quadrants</button>
-
-<button class='reptile' id='antiquadrants' command="turtle id antiquadrants rotate (randomangle) @(
-    'CircleArc',42, -90, 'Rotate', 90 * 4
-) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Antiquadrants</button>
-
-<button class='reptile' id='sextants' command="turtle id sextants rotate (randomangle) @(
-    'CircleArc',42, 60, 'Rotate', 60 * 6
-) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Sextants</button>
-
-<button class='reptile' id='antisextants' command="turtle id antisextants rotate (randomangle) @(
-    'CircleArc',42, -60, 'Rotate', 60 * 6
-) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Antisextants</button>
-
-<button class='reptile' id='octants' command="turtle id quadrants rotate (randomangle) @(
-    'CircleArc',42, 45, 'Rotate', 45 * 8
-) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Octants</button>
-
-<button class='reptile' id='antioctants' command="turtle id antioctants rotate (randomangle) @(
-    'CircleArc',42, -45, 'Rotate', 45 * 8
-) fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)">Antioctants</button>
-"@
-"</details>"
-"</blockquote>"
-"<blockquote>"
-"<details open><summary>Pies</summary>"
-@"
-<button class='reptile' id='pie3' command="
-turtle id rotate (randomangle) pie 42 3 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
-">3 slices</button>
-
-<button class='reptile' id='pie4' command="
-turtle id rotate (randomangle) pie 42 4 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
-">4 slices</button>
-
-<button class='reptile' id='pie5' command="
-turtle id rotate (randomangle) pie 42 5 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
-">5 slices</button>
-
-<button class='reptile' id='pie6' command="
-turtle id rotate (randomangle) pie 42 6 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
-">6 slices</button>
-
-<button class='reptile' id='pie7' command="
-turtle id rotate (randomangle) pie 42 7 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
-">7 slices</button>
-
-<button class='reptile' id='pie8' command="
-turtle id rotate (randomangle) pie 42 8 fill (randomcolor) (randomcolor) stroke (randomcolor) (randomcolor)
-">8 slices</button>
-
-"@
-"</details>"
-"</blockquote>"
+$Examples
 "</menu>"
 "</details>"
 "<output id='output'></output>"
@@ -225,7 +241,7 @@ function newShell(input, options = {}) {
         return
     }
     if (event?.target?.previousSibling?.value && 
-        event?.target?.previousSibling?.id.match(/^input/)) {
+        event?.target?.previousSibling?.id.match(/^command/i)) {
         inputId = event?.target?.previousSibling?.id
         const outputId = inputId.replace(/^command/i, 'output')    
     }
