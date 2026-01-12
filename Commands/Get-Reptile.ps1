@@ -130,14 +130,47 @@ function Get-Reptile
 
         Additionally, because the responses are run in background _thread_ jobs, 
         it limits the overall impact of each request, and thus service is harder to deny.
+
+        ### Reptile Roadmap
+
+        Reptile will Evolve.
+
+        Reptile is a new project, and will grow and change with time.
+        Implementation is subject to change.
+
+        The next items on the Reptile Roadmap are:
+
+        * Additional Protocol Support 
+          * JsonRPC
+          * MCP
+          * XRPC
+        * New Examples
+        * Better Variable Input
+        * More Turtles (and other useful interactive tools)
     .EXAMPLE
         reptile
     .LINK
-        https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes
+        https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes?wt.mc_id=MVP_321542
     #>
     [Alias('Reptile','REPL','WebRepl')]
     param(
-    # The rootUrl of the server.  By default, a random loopback address.
+    # The name of specific reptile.
+    # Will check the current directory and the reptile module directory for reptiles.
+    # If a single reptile exists with that name, it will be run.
+    [Alias('Species')]
+    [string]
+    $ReptileName,
+
+    # If set, will spawn a new instance of the first matching `-ReptileName/-Species`
+    [Alias('Hatch')]
+    [switch]
+    $Run,
+
+    # The rootUrl of the server.
+    # By default, a random loopback address.
+    # Randomized loopback addresses are not exposed to the network,
+    # and do not require running as admin.
+    [Alias('ServerURL')]
     [string]$RootUrl=
         "http://127.0.0.1:$(Get-Random -Minimum 4200 -Maximum 42000)/",
 
@@ -194,10 +227,40 @@ function Get-Reptile
     [ScriptBlock]
     $Initialize = {},
 
-    # The number of nodes to run.
+    # The number of reptiles to run.    
+    [Alias('EggCount')]
     [uint32]
     $NodeCount = 1
     )
+
+    if ($ReptileName) {
+        if (Test-Path $ReptileName) {
+            return Get-Item $ReptileName        
+        }
+        
+        $foundReptiles = @(
+            Get-Module Reptile | 
+                Split-Path | 
+                Get-ChildItem -Recurse -File -Filter *.ps1 |
+                Where-Object Name -match '\p{P}Reptile\p{P}' |
+                Where-Object Name -like "$ReptileName*"
+            
+            Get-ChildItem -Filter *.ps1 |
+                Where-Object Name -match '\p{P}Reptile\p{P}' |
+                Where-Object Name -like "$ReptileName*"
+        )
+
+        # If we found reptiles and want to run them
+        if ($foundReptiles -and $Run) {
+            # Launch the script
+            & $foundReptiles[0]
+            return
+        }
+        
+        $foundReptiles        
+        return 
+    }
+
 
     if ($SupportedCommand -match '^(?>Invoke-Expression|iex)$') {
         Write-Error "No.  Invoke-Expression is unsafe.  We will not support this."
@@ -235,17 +298,56 @@ function Get-Reptile
             $reply.Close()
             return
         }
+
+        $supportedCommand = $option.SupportedCommand
+
+        # Another bit of "should not be possible" paranoia:
+        # Double-check that the list of supported commands in the data block
+        # matches our list of supported commands.
+        $dataStatementAllows = 
+            $dataBlock.Ast.EndBlock.Statements[0].CommandsAllowed -replace 
+                '^["'']' -replace '["'']$'
         
+        if (($dataStatementAllows  -join ',') -ne ($SupportedCommand -join ',')) {
+            $reply.close()
+            return
+        }
+        
+        
+        $out = if ($option.Out -is [ScriptBlock]) {
+            $option.Out
+        } else {
+            {
+                param($reply)
+
+                process {
+                    if (-not $reply.OutputStream) { throw "no output stream" ; return }
+                    $in = $_
+                    if ($in.OuterXml) {                                                
+                        $buffer = $OutputEncoding.GetBytes("$($in.OuterXml)")
+                        $reply.OutputStream.Write($buffer, 0, $buffer.Length)
+                    } 
+                    elseif ($in.html) {                        
+                        $buffer = $OutputEncoding.GetBytes("$($in.html)")
+                        $reply.OutputStream.Write($buffer, 0, $buffer.Length)
+                    }
+                    else {
+                        # or the stringification of the result.                
+                        $buffer = $OutputEncoding.GetBytes("$in")
+                        $reply.OutputStream.Write($buffer, 0, $buffer.Length)
+                    }
+                }
+
+                end {                    
+                    if ($reply.Close) {
+                        $reply.Close()
+                    }
+                }
+            }
+        }
         # Then we want to try running the data block
         try {            
-            $result = $(& $dataBlock *>&1)            
-            # And respond with the outer XML
-            if ($result.OuterXml) {
-                $reply.Close($OutputEncoding.GetBytes($result.OuterXml),  $false)
-            } else {
-                # or the stringification of the result.                
-                $reply.Close($OutputEncoding.GetBytes("$result"),  $false)
-            }            
+            & $dataBlock *>&1 | & $out $reply
         } catch {
             # If anything went wrong, though it feels wrong, we want to respond with 200
             $reply.StatusCode = 200
@@ -454,9 +556,29 @@ function Get-Reptile
 
                 continue nextRequest
             }
-        }
 
+            # Another bit of "should not be possible" paranoia:
+            # Double-check that the list of supported commands in the data block
+            # matches our list of supported commands.
+            $dataStatementAllows = 
+                $dataBlock.Ast.EndBlock.Statements[0].CommandsAllowed -replace 
+                    '^["'']' -replace '["'']$'
+            if (($dataStatementAllows -join ',') -ne ($SupportedCommand -join ',')) {
+                # we want to write an error.
+                $Message = @(
+                    "Supported Commands Change Attempt @ $([datetime]::Now)."
+                    "Expected $SupportedCommand, got $DataStatementAllows"
+                ) -join ' '
+                $err = 
+                    Write-Error $Message -Category SecurityError -TargetObject $request *>&1
+                
+                $err | errorOut
+                continue nextRequest
+            }
+        }
         
+        # Now that we have prepared all of our functions,
+        # we have the main request loop.
         
         # Then listen for the next request
         :nextRequest while ($httpListener.IsListening) {
@@ -466,58 +588,56 @@ function Get-Reptile
             $request, $reply =
                 $getContext.Result.Request, $getContext.Result.Response
 
-            if ($request.Url -match '/xrpc/') {
-
+            # We will not be able to predict head requests 
+            if ($request.httpMethod -eq 'head') {
+                # so tell the client that the content length is zero and close out.
+                $reply.ContentLength = 0; $reply.Close()
+                continue nextRequest
             }
             
-            # Switch what we do next based off of the HTTP Method.
-            switch ($request.httpMethod) {
-                get {
-                    # If it's get, return the REPL
-                    $reply.ContentType = 'text/html'
-                    $replBytes = $OutputEncoding.GetBytes("$($io.Shell)")
-                    $reply.Close($replBytes, $false)
-                }
-                head {
-                    # If it's head, return 0 for content length and close out.
-                    $reply.ContentLength = 0; $reply.Close()
-                }            
-                default {
-                    # Any other verb we'll try to evaluate the body.
-                    # Of course, if there is no body
-                    if (-not $request.InputStream) {                        
-                        Write-Host "No input" -ForegroundColor Yellow
-                        $reply.ContentLength = 0
-                        $reply.Close() # close out
-                        continue nextRequest # and continue to the next request.
-                    }
-                    
-                    $dataBlock = $null           
-
-                    . getCommandAndInput
-                                                            
-                    # Now we can launch an inner thread job to run the script and reply.
-                    $replyJobParameters = @{
-                        ScriptBlock=$ReplyDefinition
-                        ThrottleLimit=1kb
-                        ArgumentList=@(
-                            $dataBlock, $reply, 
-                            [Ordered]@{
-                                'jsonrpc' = $jsonRpcParsed
-                            }                            
-                        )
-                        InitializationScript=$Initialize
-                    }
-                    
-                    # Doing this makes the server more resilient, but will be slower than directly handling each request.
-                    Start-ThreadJob @replyJobParameters
-
-                    # Clean up any completed requests and continue on with the loop.
-                    Get-Job | 
-                        Where-Object State -eq 'Completed' | 
-                        Remove-Job -Force
-                }
+            if ($request.httpMethod -eq 'get') {
+                # If it's get, return the REPL
+                $reply.ContentType = 'text/html'
+                $replBytes = $OutputEncoding.GetBytes("$($io.Shell)")
+                $reply.Close($replBytes, $false)
+                continue nextRequest
             }
+            
+            # Any other verb we'll try to evaluate the body.
+            # Of course, if there is no body
+            if (-not $request.InputStream) {                        
+                Write-Host "No input" -ForegroundColor Yellow
+                $reply.ContentLength = 0
+                $reply.Close() # close out
+                continue nextRequest # and continue to the next request.
+            }
+            
+            $dataBlock = $null           
+
+            . getCommandAndInput
+                                                    
+            # Now we can launch an inner thread job to run the script and reply.
+            $replyJobParameters = @{
+                ScriptBlock=$ReplyDefinition
+                ThrottleLimit=1kb
+                ArgumentList=@(
+                    $dataBlock, $reply, 
+                    [Ordered]@{
+                        'supportedCommand' = $SupportedCommand
+                        'jsonrpc' = $jsonRpcParsed
+                    }                            
+                )
+                InitializationScript=$Initialize
+            }
+            
+            # Doing this makes the server more resilient, but will be slower than directly handling each request.
+            Start-ThreadJob @replyJobParameters
+
+            # Clean up any completed requests and continue on with the loop.
+            Get-Job | 
+                Where-Object State -eq 'Completed' | 
+                Remove-Job -Force
+
         }            
     
     }
