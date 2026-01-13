@@ -122,8 +122,22 @@ turtle id rotate (randomangle) pie 42 8 fill (randomcolor) (randomcolor) stroke 
 }"
 
 "button, summary { font-size: 1.25rem; padding: 0.25rem; }"
-
+@"
+.current-tabs {
+    position: sticky;
+    top: 1%;
+    left: 1%;
+    display: flex;
+    flex: auto;
+    flex-direction: column;    
+}
+"@
 "</style>"
+
+@"
+<menu class='tabs'>
+</menu>
+"@
 "<div class='repl-command-grid'>"
 "<textarea class='repl-command' id='command' autocomplete='repl-command' rows='3' spellcheck='false'>"
 $Lucky
@@ -187,7 +201,8 @@ function newShell(input, options = {}) {
     newListGrid.appendChild(newGoButton)                    
     newListDetails.appendChild(newListOutput)
     
-    if (outputItemList.firstChild) {
+    const topToBottom = true;
+    if (topToBottom && outputItemList.firstChild) {
         outputItemList.insertBefore(newListDetails, outputItemList.firstChild)
     } else {
         outputItemList.appendChild(newListDetails)
@@ -226,7 +241,7 @@ function newShell(input, options = {}) {
 
         out.animate({ scale: ['0%', '100%'] }, 67);
 
-        out.scrollIntoView()
+        out.scrollIntoView({ behavior: 'smooth', block: 'end' })
 
         const inputElement = document.getElementById(inputId)
         if (inputElement) {

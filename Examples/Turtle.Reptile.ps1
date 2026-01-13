@@ -3,11 +3,13 @@
 Push-Location $PSScriptRoot
 
 Reptile -Initialize {
-    Import-Module Turtle, MarkX, OEmbed -Global
+    Import-Module Turtle, MarkX, OEmbed, Gradient -Global
     $env:TURTLE_BOT = $true
     Set-Alias Random Get-Random
     function RandomColor { "#{0:x6}" -f (Get-Random -Max 0xffffff) }
     function RandomAngle {Get-Random -Min -360 -Max 360 }
+
+    function RandomPercent { "$(Get-Random -Min 0.01 -Max 99.99)%" }
 
     function ColorWheel { 
         "<style>"
@@ -35,11 +37,13 @@ Reptile -Initialize {
 } -Repl (./TurtleShell.html.ps1) -SupportedCommand @(
     'Turtle', 'Get-Turtle'
 
-    'MarkX', 'Markdown', 'Get-MarkX'
+    'MarkX', 'Markdown', 'Get-MarkX',
+
+    'Gradient', 'Get-Gradient',
 
     'Get-OEmbed', 'oEmbed'
 
-    'Get-Random', 'Random', 'RandomColor', 'RandomAngle'    
+    'Get-Random', 'Random', 'RandomColor', 'RandomAngle', 'RandomPercent'    
 
     'ColorWheel'
 
