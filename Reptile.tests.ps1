@@ -7,7 +7,6 @@ describe Reptile {
                 Should -Be 2
 
             $r.HttpListener.Stop()
-
             $r | Remove-Job -Force
         }
 
@@ -18,7 +17,6 @@ describe Reptile {
                 Should -Match "line:\d"
 
             $r.HttpListener.Stop()
-
             $r | Remove-Job -Force
         }
     }
