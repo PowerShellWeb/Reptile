@@ -2,9 +2,9 @@ function Get-Reptile
 {
     <#
     .SYNOPSIS
-        Gets Reptiles
+        Reptile
     .DESCRIPTION
-        Gets Reptiles - Read Evaluate Print Terminal Input Loop Editor
+        Reptile - Read Evaluate Print Terminal Input Loop Editor
     .NOTES
         ## Reptile        
         ### Read Evaluate Print Terminal Input Loop Editor - A Scaley Simple PowerShell Data REPL

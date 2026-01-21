@@ -122,3 +122,20 @@ and so have a much more difficult time escalating any potential jailbreaks.
 
 Additionally, because the responses are run in background _thread_ jobs, 
 it limits the overall impact of each request, and thus service is harder to deny.
+
+### Reptile Roadmap
+
+Reptile will Evolve.
+
+Reptile is a new project, and will grow and change with time.
+Implementation is subject to change.
+
+The next items on the Reptile Roadmap are:
+
+* Additional Protocol Support 
+  * JsonRPC
+  * MCP
+  * XRPC
+* New Examples
+* Better Variable Input
+* More Turtles (and other useful interactive tools)
