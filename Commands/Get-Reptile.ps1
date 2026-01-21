@@ -152,7 +152,7 @@ function Get-Reptile
     .LINK
         https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes?wt.mc_id=MVP_321542
     #>
-    [Alias('Reptile','REPL','WebRepl')]
+    [Alias('Reptile','REPL','WebRepl','🦎','🐊')]
     param(
     # The name of specific reptile.
     # Will check the current directory and the reptile module directory for reptiles.
@@ -320,21 +320,30 @@ function Get-Reptile
             {
                 param($reply)
 
-                process {
+                begin {
                     if (-not $reply.OutputStream) { throw "no output stream" ; return }
+                    $reply.ProtocolVersion = '1.1'
+                    $reply.SendChunked = $true
+                }
+
+                process {                    
                     $in = $_
+                    
                     if ($in.OuterXml) {                                                
                         $buffer = $OutputEncoding.GetBytes("$($in.OuterXml)")
                         $reply.OutputStream.Write($buffer, 0, $buffer.Length)
+                        $reply.OutputStream.Flush()
                     } 
                     elseif ($in.html) {                        
                         $buffer = $OutputEncoding.GetBytes("$($in.html)")
                         $reply.OutputStream.Write($buffer, 0, $buffer.Length)
+                        $reply.OutputStream.Flush()
                     }
                     else {
                         # or the stringification of the result.                
                         $buffer = $OutputEncoding.GetBytes("$in")
                         $reply.OutputStream.Write($buffer, 0, $buffer.Length)
+                        $reply.OutputStream.Flush()
                     }
                 }
 
@@ -495,6 +504,11 @@ function Get-Reptile
                         $inputCopy[$key] = $jsonRpc.parameters[$key]
                     }
                 }
+                else {
+                    foreach ($key in $inputParsed.keys) {
+                        $inputCopy[$key] = $inputParsed[$key]
+                    }
+                }
             }
 
             # If the content type looks like form data
@@ -650,13 +664,25 @@ function Get-Reptile
         Name = $RootUrl
     }
 
-    foreach ($nodeNumber in 1..$NodeCount) {
+    
+
+    $ForcePassThru = @{Force=$true;PassThru=$true}
+    foreach ($nodeNumber in 1..$NodeCount) {        
         # Our server is a thread job
-        Start-ThreadJob @JobParameters| # Output our job,
+        $reptileJob = Start-ThreadJob @JobParameters| # Output our job,
             Add-Member -NotePropertyMembers @{ # but attach a few properties first:
                 HttpListener=$httpListener # * The listener (so we can stop it)
                 IO=$IO # * The IO (so we can change it)
                 Url="$RootUrl" # The URL (so we can easily access it).
-            } -Force -PassThru # Pass all of that thru and return it to you.
+            } @ForcePassThru # Pass all of that thru and return it to you.
+
+        $reptileJob.pstypenames.add('Reptile')
+        $reptileJob | 
+            Add-Member ScriptProperty -Name Shell -Value {
+                return $io.Shell
+            } -SecondValue { 
+                $io.Shell = $args -join [Environment]::NewLine
+            } @ForcePassThru |
+            Add-Member AliasProperty -Name Skin -Value Shell @ForcePassThru
     }
 }
