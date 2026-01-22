@@ -34,8 +34,31 @@ Reptile -Initialize {
             "<h1>$([Web.HttpUtility]::HtmlEncode($message))</h1>"
         }
     }
-} -Repl (./TurtleShell.html.ps1) -SupportedCommand @(
-    'Turtle', 'Get-Turtle'
+
+    function tips {        
+        $tips = @(
+            
+            '`colorwheel` draws a color wheel'
+
+            '`Get-Random` gets random numbers (or random items)'
+
+            'You can multiply lists to repeat them:  `turtle @("rotate", (360/5), "forward", 42 * 5)`'
+
+            "There are many types of flower (flower, triflower, petalflower, goldenflower)"
+            
+            'Turtle can do math.  Try./ `turtle rotate (360/4) forward 42`'
+
+            'Turtle can make patterns.  Just add `pattern` to the end of a command.'
+        )
+        
+        "<h3>$($tips | 
+            Get-Random | 
+            ConvertFrom-Markdown | 
+            Select-Object -ExpandProperty html
+        )</h3>"
+    }
+} -Repl (./TurtleShell.html.ps1) -SupportedCommand @(    
+    'Turtle', 'Get-Turtle', '🐢'
 
     'MarkX', 'Markdown', 'Get-MarkX',
 
@@ -48,6 +71,8 @@ Reptile -Initialize {
     'ColorWheel'
 
     'Say'
+
+    'tip','tips'
 )
 
 Pop-Location
